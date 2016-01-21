@@ -1,0 +1,20 @@
+{
+  "$schema":"http://schemas.socialcodedev.com/facebook/pages.1.json",
+  "data":{
+    "username":"AveenoCanada",
+    "name":"Aveeno Canada",
+    "picture":"https://scontent.xx.fbcdn.net/hprofile-xpt1/v/t1.0-1/10456259_802068543163417_6097620934072419937_n.png?oh=728afbe7f11f798fe645676249932087&oe=571E2D60",
+    "talking_about_count":133,
+    "cover":"https://scontent.xx.fbcdn.net/hphotos-xtf1/v/t1.0-9/s720x720/11046195_816752981694973_6836084116923669429_n.png?oh=b909f55ead9666c0a6105142b5b5452b&oe=5710E295",
+    "link":"https://www.facebook.com/AveenoCanada/",
+    "likes":105861,
+    "id":"196989827004628",
+    "is_published":true
+  },
+  "metadata":{
+    "environment":"facebook",
+    "crawl_id":"0c52e914-afa8-11e5-aca1-22000b4084ee",
+    "guid":"0ca4bf46-afa8-11e5-9774-22000b2687d8",
+    "crawl_time":"2015-12-31T10:20:00+00:00"
+  }
+}
