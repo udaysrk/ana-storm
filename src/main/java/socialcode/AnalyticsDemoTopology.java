@@ -36,7 +36,9 @@ import java.util.ListIterator;
 import java.util.Map;
 
 
-public class App {
+public class AnalyticsDemoTopology {
+    private static final Logger LOG = LoggerFactory.getLogger(AnalyticsDemoTopology.class);
+
     public static class TestDocumentSpout extends BaseRichSpout {
         private static SpoutOutputCollector _collector;
         private static String _document;
@@ -51,8 +53,8 @@ public class App {
         }
 
         public void nextTuple() {
+            // emit the same document every second
             Utils.sleep(1000);
-            // emit the same document over and over again
             _collector.emit(new Values(_document));
         }
 
@@ -61,12 +63,12 @@ public class App {
         }
     }
 
-    public static class AnalyticsBolt extends BaseBasicBolt {
-        private static final Logger LOG = LoggerFactory.getLogger(App.class);
+    public static class FacebookAnalyticsMysqlBolt extends BaseBasicBolt {
+        private static final Logger LOG = LoggerFactory.getLogger(FacebookAnalyticsMysqlBolt.class);
         private static transient Connection _connection;
         private static String _pagesPrepStmnt;
 
-        public AnalyticsBolt() throws ClassNotFoundException, SQLException, IOException {
+        public FacebookAnalyticsMysqlBolt() throws ClassNotFoundException, SQLException, IOException {
             super();
             // explicitly load the driver class
             Class.forName("com.mysql.jdbc.Driver");
@@ -105,12 +107,13 @@ public class App {
     public static void main(String[] args) throws Exception {
         TopologyBuilder builder = new TopologyBuilder();
         builder.setSpout("1", new TestDocumentSpout());
-        builder.setBolt("2", new AnalyticsBolt()).shuffleGrouping("1");
+        // subscribe to all streams on the TestDocumentSpout
+        builder.setBolt("2", new FacebookAnalyticsMysqlBolt()).shuffleGrouping("1");
 
         Config conf = new Config();
         conf.setDebug(true);
 
-        System.out.println("Building local cluster, may take some time..");
+        LOG.info("Building local cluster, may take some time...");
         LocalCluster cluster = new LocalCluster();
         cluster.submitTopology("test", conf, builder.createTopology());
         Utils.sleep(10000);
