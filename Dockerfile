@@ -1,6 +1,6 @@
 FROM jamesdbloom/docker-java7-maven
 
-RUN DEBIAN_FRONTEND=noninteractive apt-get install -yq mysql-server
+RUN apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -yq mysql-server
 
 WORKDIR /var/ana_storm
 

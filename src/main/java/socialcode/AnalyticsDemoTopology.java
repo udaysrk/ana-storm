@@ -3,18 +3,21 @@ package socialcode;
 import backtype.storm.Config;
 import backtype.storm.LocalCluster;
 import backtype.storm.spout.SpoutOutputCollector;
-import backtype.storm.task.TopologyContext;
-import backtype.storm.topology.BasicOutputCollector;
 import backtype.storm.topology.OutputFieldsDeclarer;
+import backtype.storm.task.TopologyContext;
 import backtype.storm.topology.TopologyBuilder;
-import backtype.storm.topology.base.BaseBasicBolt;
 import backtype.storm.topology.base.BaseRichSpout;
 import backtype.storm.tuple.Fields;
-import backtype.storm.tuple.Tuple;
 import backtype.storm.tuple.Values;
+import backtype.storm.tuple.ITuple;
 import backtype.storm.utils.Utils;
 
 import org.apache.commons.io.IOUtils;
+
+import org.apache.storm.jdbc.common.HikariCPConnectionProvider;
+import org.apache.storm.jdbc.bolt.JdbcInsertBolt;
+import org.apache.storm.jdbc.common.Column;
+import org.apache.storm.jdbc.mapper.JdbcMapper;
 
 import org.json.JSONException;
 import org.json.JSONObject;
@@ -22,18 +25,14 @@ import org.json.JSONObject;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.InputStream;
 import java.io.IOException;
 
-import java.sql.Connection;
-import java.sql.DriverManager;
-import java.sql.PreparedStatement;
-import java.sql.SQLException;
+import java.sql.Types;
 
-import java.util.Arrays;
+import java.util.ArrayList;
 import java.util.List;
-import java.util.ListIterator;
 import java.util.Map;
+import java.util.HashMap;
 
 
 public class AnalyticsDemoTopology {
@@ -63,52 +62,47 @@ public class AnalyticsDemoTopology {
         }
     }
 
-    public static class FacebookAnalyticsMysqlBolt extends BaseBasicBolt {
-        private static final Logger LOG = LoggerFactory.getLogger(FacebookAnalyticsMysqlBolt.class);
-        private static transient Connection _connection;
-        private static String _pagesPrepStmnt;
-
-        public FacebookAnalyticsMysqlBolt() throws ClassNotFoundException, SQLException, IOException {
-            super();
-            // explicitly load the driver class
-            Class.forName("com.mysql.jdbc.Driver");
-            _connection = DriverManager.getConnection("jdbc:mysql://localhost:3306/facebook_analytics?user=root");
-            _pagesPrepStmnt = IOUtils.toString(getClass().getResourceAsStream("/pages_prepstmnt.sql"));
-            LOG.info(_pagesPrepStmnt);
-        }
+    public static class AnalyticsJdbcMapper implements JdbcMapper {
 
         @Override
-        public void execute(Tuple tuple, BasicOutputCollector collector) {
+        public List<Column> getColumns(ITuple tuple) {
             try {
                 JSONObject docObj = new JSONObject(tuple.getString(0));
                 JSONObject dataObj = docObj.getJSONObject("data");
-
-                PreparedStatement prepStmnt = _connection.prepareStatement(_pagesPrepStmnt);
-                prepStmnt.setObject(1, dataObj.getString("id"));
-                prepStmnt.setObject(2, dataObj.getString("name"));
-                prepStmnt.setObject(3, dataObj.getString("username"));
-                prepStmnt.setObject(4, dataObj.getString("link"));
-                prepStmnt.setObject(5, dataObj.getBoolean("is_published"));
-                prepStmnt.setObject(6, dataObj.getInt("likes"));
-                prepStmnt.setObject(7, dataObj.getInt("talking_about_count"));
-                prepStmnt.setObject(8, dataObj.getString("cover"));
-                prepStmnt.setObject(9, dataObj.getString("picture"));
-                prepStmnt.executeUpdate();
-            } catch (JSONException | SQLException e) {
-                LOG.error("Error processing document", e);
+                List<Column> columns = new ArrayList<Column>();
+                columns.add(new Column("id", dataObj.getString("id"), Types.VARCHAR));
+                columns.add(new Column("name", dataObj.getString("name"), Types.VARCHAR));
+                columns.add(new Column("username", dataObj.getString("username"), Types.VARCHAR));
+                columns.add(new Column("link", dataObj.getString("link"), Types.VARCHAR));
+                columns.add(new Column("is_published", dataObj.getBoolean("is_published"), Types.BIT));
+                columns.add(new Column("likes", dataObj.getInt("likes"), Types.INTEGER));
+                columns.add(new Column("talking_about_count", dataObj.getInt("talking_about_count"), Types.INTEGER));
+                columns.add(new Column("cover", dataObj.getString("cover"), Types.VARCHAR));
+                columns.add(new Column("picture", dataObj.getString("picture"), Types.VARCHAR));
+                return columns;
+            } catch (JSONException e) {
+                throw new RuntimeException("Failed to parse JSON", e);
             }
-        }
-
-        @Override
-        public void declareOutputFields(OutputFieldsDeclarer declarer) {
         }
     }
 
     public static void main(String[] args) throws Exception {
+        Map hikariConfigMap = new HashMap<String, Object>();
+        hikariConfigMap.put("dataSourceClassName", "com.mysql.jdbc.jdbc2.optional.MysqlDataSource");
+        hikariConfigMap.put("dataSource.url", "jdbc:mysql://localhost:3306/facebook_analytics");
+        hikariConfigMap.put("dataSource.user", "root");
+        HikariCPConnectionProvider connectionProvider = new HikariCPConnectionProvider(hikariConfigMap);
+
+        String pagesPrepStmnt = IOUtils.toString(AnalyticsDemoTopology.class.getResourceAsStream("/pages_prepstmnt.sql"));
+
+        JdbcInsertBolt userPersistanceBolt = new JdbcInsertBolt(connectionProvider, new AnalyticsJdbcMapper())
+                                            .withInsertQuery(pagesPrepStmnt)
+                                            .withQueryTimeoutSecs(30);
+
         TopologyBuilder builder = new TopologyBuilder();
         builder.setSpout("1", new TestDocumentSpout());
         // subscribe to all streams on the TestDocumentSpout
-        builder.setBolt("2", new FacebookAnalyticsMysqlBolt()).shuffleGrouping("1");
+        builder.setBolt("2", userPersistanceBolt).shuffleGrouping("1");
 
         Config conf = new Config();
         conf.setDebug(true);
