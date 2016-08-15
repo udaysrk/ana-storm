@@ -21,19 +21,9 @@
       <scope>compile</scope>
     </dependency>
     <dependency>
-      <groupId>org.apache.storm</groupId>
-      <artifactId>storm-jdbc</artifactId>
-      <version>0.10.0</version>
-    </dependency>
-    <dependency>
       <groupId>org.json</groupId>
       <artifactId>org.json</artifactId>
       <version>chargebee-1.0</version>
-    </dependency>
-    <dependency>
-      <groupId>mysql</groupId>
-      <artifactId>mysql-connector-java</artifactId>
-      <version>5.1.31</version>
     </dependency>
   </dependencies>
 
@@ -44,7 +34,6 @@
         <directory>src/resources</directory>
         <includes>
           <include>**/*.json</include>
-          <include>**/*.sql</include>
         </includes>
       </resource>
     </resources>
@@ -83,7 +72,7 @@
           <archive>
             <manifest>
               <addClasspath>true</addClasspath>
-              <mainClass>socialcode.AnalyticsDemoTopology</mainClass>
+              <mainClass>socialcode.MessageBusProducerTopology</mainClass>
             </manifest>
           </archive>
         </configuration>
